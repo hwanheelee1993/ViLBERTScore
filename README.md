@@ -12,7 +12,7 @@ This code is built upon original [ViLBERT](https://arxiv.org/abs/1908.02265) pap
 conda create -n vilbert-score python=3.6
 conda activate vilbert-score
 git clone https://github.com/hwanheelee1993/ViLBERTScore.git
-cd vilbert-multi-task
+cd vilbert_score
 pip install -r requirements.txt
 ```
 
