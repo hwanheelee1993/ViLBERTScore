@@ -50,3 +50,15 @@ python compute_vilbertscore.py --dataset flickr8k
 
 ## License
 MIT license
+
+Please cite the following paper if you use this code. 
+[ViLBERTScore: Evaluating Image Caption Using Vision-and-Language BERT](https://www.aclweb.org/anthology/2020.eval4nlp-1.4/).
+```
+@inproceedings{lee2020vilbertscore,
+  title={ViLBERTScore: Evaluating Image Caption Using Vision-and-Language BERT},
+  author={Lee, Hwanhee and Yoon, Seunghyun and Dernoncourt, Franck and Kim, Doo Soon and Bui, Trung and Jung, Kyomin},
+  booktitle={Proceedings of the First Workshop on Evaluation and Comparison of NLP Systems},
+  pages={34--39},
+  year={2020}
+}
+```
