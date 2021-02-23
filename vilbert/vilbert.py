@@ -293,7 +293,7 @@ class BertConfig(object):
         """Serializes this instance to a JSON string."""
         return json.dumps(self.to_dict(), indent=2, sort_keys=True) + "\n"
 
-
+'''
 try:
     from apex.normalization.fused_layer_norm import FusedLayerNorm as BertLayerNorm
 except ImportError:
@@ -315,6 +315,22 @@ except ImportError:
             s = (x - u).pow(2).mean(-1, keepdim=True)
             x = (x - u) / torch.sqrt(s + self.variance_epsilon)
             return self.weight * x + self.bias
+'''
+
+class BertLayerNorm(nn.Module):
+    def __init__(self, hidden_size, eps=1e-12):
+        """Construct a layernorm module in the TF style (epsilon inside the square root).
+        """
+        super(BertLayerNorm, self).__init__()
+        self.weight = nn.Parameter(torch.ones(hidden_size))
+        self.bias = nn.Parameter(torch.zeros(hidden_size))
+        self.variance_epsilon = eps
+
+    def forward(self, x):
+        u = x.mean(-1, keepdim=True)
+        s = (x - u).pow(2).mean(-1, keepdim=True)
+        x = (x - u) / torch.sqrt(s + self.variance_epsilon)
+        return self.weight * x + self.bias        
 
 
 class BertEmbeddings(nn.Module):
@@ -1614,7 +1630,7 @@ class VILBertForVLTasks(BertPreTrainedModel):
             config.bi_hidden_size, config.bi_hidden_size * 2, 1533, 0.5
         )
         self.vil_binary_prediction = SimpleClassifier(
-            config.bi_hidden_size * 2, config.bi_hidden_size * 2, 2, 0.5
+            config.bi_hidden_size*2, config.bi_hidden_size * 2, 2, 0.5
         )
         self.vil_logit = nn.Linear(config.bi_hidden_size, 1)
         self.vil_tri_prediction = nn.Linear(
@@ -1647,6 +1663,8 @@ class VILBertForVLTasks(BertPreTrainedModel):
         task_ids=None,
         output_all_encoded_layers=False,
         output_all_attention_masks=False,
+        output_representations=False,
+        single_task=False
     ):
 
         sequence_output_t, sequence_output_v, pooled_output_t, pooled_output_v, all_attention_mask = self.bert(
@@ -1683,29 +1701,54 @@ class VILBertForVLTasks(BertPreTrainedModel):
 
         vil_prediction = self.vil_prediction(pooled_output)
         vil_prediction_gqa = self.vil_prediction_gqa(pooled_output)
+        
         if pooled_output.size(0) % 2 == 0:
             vil_binary_prediction = self.vil_binary_prediction(
                 pooled_output.view(-1, pooled_output.size(1) * 2)
-            )
+          )
+        
         vil_logit = self.vil_logit(pooled_output)
+        '''
+        vil_binary_prediction = self.vil_binary_prediction(
+                pooled_output
+        )        
+        '''
         vil_tri_prediction = self.vil_tri_prediction(pooled_output)
         vision_logit = self.vision_logit(self.dropout(sequence_output_v)) + (
             (1.0 - image_attention_mask) * -10000.0
         ).unsqueeze(2).to(dtype=next(self.parameters()).dtype)
         linguisic_logit = self.linguisic_logit(self.dropout(sequence_output_t))
 
-        return (
-            vil_prediction,
-            vil_prediction_gqa,
-            vil_logit,
-            vil_binary_prediction,
-            vil_tri_prediction,
-            vision_prediction,
-            vision_logit,
-            linguisic_prediction,
-            linguisic_logit,
-            all_attention_mask,
-        )
+        if(single_task):
+            return vil_logit
+        else:
+            if(output_representations):
+                return (
+                    vil_prediction,
+                    vil_prediction_gqa,
+                    vil_logit,
+                    vil_binary_prediction,
+                    vil_tri_prediction,
+                    vision_prediction,
+                    vision_logit,
+                    linguisic_prediction,
+                    linguisic_logit,
+                    all_attention_mask,
+                    [sequence_output_t, sequence_output_v, pooled_output_t, pooled_output_v]
+                )
+            else:
+                return (
+                    vil_prediction,
+                    vil_prediction_gqa,
+                    vil_logit,
+                    vil_binary_prediction,
+                    vil_tri_prediction,
+                    vision_prediction,
+                    vision_logit,
+                    linguisic_prediction,
+                    linguisic_logit,
+                    all_attention_mask,
+                )
 
 
 class SimpleClassifier(nn.Module):

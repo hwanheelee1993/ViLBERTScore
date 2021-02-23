@@ -19,7 +19,7 @@ from maskrcnn_benchmark.layers import nms
 from maskrcnn_benchmark.modeling.detector import build_detection_model
 from maskrcnn_benchmark.structures.image_list import to_image_list
 from maskrcnn_benchmark.utils.model_serialization import load_state_dict
-
+from tqdm import tqdm
 
 class FeatureExtractor:
     MAX_SIZE = 1333
@@ -216,11 +216,12 @@ class FeatureExtractor:
         if os.path.isfile(image_dir):
             features, infos = self.get_detectron_features([image_dir])
             self._save_feature(image_dir, features[0], infos[0])
+            print("Extracting ")
         else:
             files = glob.glob(os.path.join(image_dir, "*"))
             # files = sorted(files)
             # files = [files[i: i+1000] for i in range(0, len(files), 1000)][self.args.partition]
-            for chunk in self._chunks(files, self.args.batch_size):
+            for chunk in tqdm(self._chunks(files, self.args.batch_size)):
                 try:
                     features, infos = self.get_detectron_features(chunk)
                     for idx, file_name in enumerate(chunk):

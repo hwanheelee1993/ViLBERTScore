@@ -19,12 +19,15 @@ from pytorch_transformers.tokenization_bert import BertTokenizer
 from vilbert.datasets import DatasetMapTrain, DatasetMapEval
 from vilbert.datasets._image_features_reader import ImageFeaturesH5Reader
 import pdb
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
 LossMap = {
     "BCEWithLogitLoss": nn.BCEWithLogitsLoss(reduction="mean"),
     "CrossEntropyLoss": nn.CrossEntropyLoss(),
+    "MSELoss": nn.MSELoss(reduction="mean"),
+    "BCELoss": nn.BCELoss()
 }
 
 
@@ -39,7 +42,6 @@ def ForwardModelsVal(args, task_cfg, device, task_id, batch, model, task_losses)
         features, spatials, image_mask, question, target, input_mask, segment_ids, co_attention_mask, question_id = (
             batch
         )
-
     batch_size = features.size(0)
     if task_cfg[task_id]["process"] in ["expand"]:
         max_num_bbox = features.size(1)
@@ -107,6 +109,7 @@ def ForwardModelsVal(args, task_cfg, device, task_id, batch, model, task_losses)
 
     task_tokens = question.new().resize_(question.size(0), 1).fill_(int(task_id[4:]))
 
+    
     vil_prediction, vil_prediction_gqa, vil_logit, vil_binary_prediction, vil_tri_prediction, vision_prediction, vision_logit, linguisic_prediction, linguisic_logit, _ = model(
         question,
         features,
@@ -117,7 +120,7 @@ def ForwardModelsVal(args, task_cfg, device, task_id, batch, model, task_losses)
         co_attention_mask,
         task_tokens,
     )
-
+    
     if task_cfg[task_id]["type"] == "VL-classifier":
         loss = task_losses[task_id](vil_prediction, target)
         loss = loss.mean() * target.size(1)
@@ -161,6 +164,29 @@ def ForwardModelsVal(args, task_cfg, device, task_id, batch, model, task_losses)
         loss = loss.mean()
         batch_score = compute_score_with_logits(vil_tri_prediction, target).sum()
 
+    elif task_cfg[task_id]["type"] == "VL-Reg":
+        #vil_logit = vil_logit.squeeze()
+        #print("### logit", vil_logit[:3])
+        #print("@@@ target", target[:3])
+        #print("## FVAL vil_logit size ", vil_logit.size())
+        loss = task_losses[task_id](vil_logit, target)
+        #loss = loss.sum().mean()
+        batch_score = loss
+        
+        
+    elif task_cfg[task_id]["type"] == "VL-logit-binary":
+        sigmoid = torch.nn.Sigmoid()
+        num_options = 1
+        vil_logit = vil_logit.view(batch_size, num_options)
+        target = target.view(batch_size, num_options)
+        loss = task_losses[task_id](vil_logit, target)
+        preds = torch.tensor(sigmoid(vil_logit.squeeze()) > 0.5)
+        preds_ = preds.detach().cpu().numpy().astype(int)
+        target_ = target.squeeze().detach().cpu().numpy()
+        
+        batch_score = float((preds_ == target_).sum()) / float(batch_size)            
+        
+        
     return float(loss), float(batch_score), batch_size
 
 
@@ -310,6 +336,7 @@ def ForwardModelsTrain(
         )
 
     task_tokens = question.new().resize_(question.size(0), 1).fill_(int(task_id[4:]))
+    
     vil_prediction, vil_prediction_gqa, vil_logit, vil_binary_prediction, vil_tri_prediction, vision_prediction, vision_logit, linguisic_prediction, linguisic_logit, _ = model(
         question,
         features,
@@ -318,8 +345,7 @@ def ForwardModelsTrain(
         input_mask,
         image_mask,
         co_attention_mask,
-        task_tokens,
-    )
+        task_tokens)
 
     # for different task, we use different output to calculate the loss.
     if task_cfg[task_id]["type"] == "VL-classifier":
@@ -360,6 +386,7 @@ def ForwardModelsTrain(
         batch_score = float((preds == target).sum()) / float(batch_size)
 
     elif task_cfg[task_id]["type"] == "VL-binary-classifier":
+        #print(vil_binary_prediction.size(), target.size())
         loss = task_losses[task_id](vil_binary_prediction, target)
         loss = loss.mean()
         batch_score = compute_score_with_logits(
@@ -373,6 +400,30 @@ def ForwardModelsTrain(
             vil_tri_prediction, target
         ).sum() / float(batch_size)
 
+    elif task_cfg[task_id]["type"] == "VL-Reg":
+        #vil_logit = vil_logit.view(batch_size, 1)
+        #target = target.view(batch_size, 1)
+        #print("## FTRAIN vil_logit size ", vil_logit.size())
+
+        loss = task_losses[task_id](vil_logit, target)
+        #loss = loss.sum().mean()
+        batch_score = loss
+        
+
+    elif task_cfg[task_id]["type"] == "VL-logit-binary":
+        sigmoid = torch.nn.Sigmoid()
+        num_options = 1
+        vil_logit = vil_logit.view(batch_size, num_options)
+        target = target.view(batch_size, num_options)
+        loss = task_losses[task_id](vil_logit, target)
+        preds = torch.tensor(sigmoid(vil_logit.squeeze()) > 0.5)
+        preds_ = preds.detach().cpu().numpy().astype(int)
+        target_ = target.squeeze().detach().cpu().numpy()
+        
+        batch_score = float((preds_ == target_).sum()) / float(batch_size)        
+        
+        
+        
     return loss, batch_score
 
 
@@ -441,6 +492,8 @@ def LoadDatasets(args, task_cfg, ids, split="trainval"):
             "Loading %s Dataset with batch size %d"
             % (task_cfg[task]["name"], batch_size)
         )
+        #print("# Train Path : ", task_cfg[task]["train_annotations_jsonpath"])
+        #print("# Valid Path : ", task_cfg[task]["val_annotations_jsonpath"])
 
         task_datasets_train[task] = None
         if "train" in split:
@@ -496,10 +549,12 @@ def LoadDatasets(args, task_cfg, ids, split="trainval"):
 
             task_dataloader_train[task] = DataLoader(
                 task_datasets_train[task],
+                shuffle=False,
                 sampler=train_sampler,
                 batch_size=batch_size,
                 num_workers=num_workers,
                 pin_memory=True,
+                drop_last=True
             )
 
             task_num_iters[task] = len(task_dataloader_train[task])
@@ -512,6 +567,7 @@ def LoadDatasets(args, task_cfg, ids, split="trainval"):
                 batch_size=batch_size,
                 num_workers=2,
                 pin_memory=True,
+                drop_last=True
             )
 
     return (
@@ -763,6 +819,7 @@ def EvaluatingModel(
     task_tokens = question.new().resize_(question.size(0), 1).fill_(int(task_id[4:]))
 
     with torch.no_grad():
+        
         vil_prediction, vil_prediction_gqa, vil_logit, vil_binary_prediction, vil_tri_prediction, vision_prediction, vision_logit, linguisic_prediction, linguisic_logit, _ = model(
             question,
             features,
@@ -856,4 +913,43 @@ def EvaluatingModel(
         loss = loss.mean()
         batch_score = compute_score_with_logits(vil_tri_prediction, target).sum()
 
+    elif task_cfg[task_id]["type"] == "VL-Reg":
+        #vil_logit = vil_logit.view(batch_size, 1)
+        #target = target.view(batch_size, 1)
+        #print("## EVALMODEL vil_logit size ", vil_logit.size())
+        loss = task_losses[task_id](vil_logit, target)
+        loss = loss.mean()
+        batch_score = loss
+
+        for i in range(vil_logit.size(0)):
+            results.append(
+                {
+                    "question_id": question_id[i].item(),
+                    "answer": vil_logit[i].item(),
+                }
+            )
+    elif task_cfg[task_id]["type"] == "VL-logit-binary":
+        sigmoid = torch.nn.Sigmoid()
+        num_options=1
+        vil_logit = vil_logit.view(batch_size, num_options)
+        target = target.view(batch_size, num_options)
+        loss = task_losses[task_id](vil_logit, target)
+        preds = torch.tensor(sigmoid(vil_logit.squeeze()) > 0.5) 
+        preds_ = preds.detach().cpu().numpy().astype(np.int32)
+        target_ = target.squeeze().detach().cpu().numpy().astype(np.int32)
+        
+        corrects = np.array(preds_ == target_).astype(float)
+        
+        batch_score = np.sum(corrects)/ float(batch_size)            
+       
+        
+        for i in range(vil_logit.size(0)):
+            results.append(
+                {
+                    "question_id": question_id[i].item(),
+                    "answer": float(preds_[i]),
+                    "correct":float(corrects[i])
+                }
+            )            
+            
     return float(loss), float(batch_score), batch_size, results, others

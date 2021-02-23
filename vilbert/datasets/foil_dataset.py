@@ -24,27 +24,6 @@ os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 def assert_eq(real, expected):
     assert real == expected, "%s (true) vs %s (expected)" % (real, expected)
 
-
-def _load_annotations(annotations_jsonpath):
-    """Build an index out of FOIL annotations, mapping each image ID with its corresponding captions."""
-
-    annotations_json = json.load(open(annotations_jsonpath))
-
-    # Build an index which maps image id with a list of caption annotations.
-    entries = []
-
-    for annotation in annotations_json["annotations"]:
-        entries.append(
-            {
-                "caption": annotation["caption"].lower(),
-                "foil": annotation["foil"],
-                "image_id": annotation["image_id"],
-            }
-        )
-
-    return entries
-
-
 class FoilClassificationDataset(Dataset):
     def __init__(
         self,
@@ -59,6 +38,7 @@ class FoilClassificationDataset(Dataset):
         padding_index=0,
         max_seq_length=20,
         max_region_num=101,
+	clean_datasets=False
     ):
         # All the keys in `self._entries` would be present in `self._image_features_reader`
 
@@ -69,6 +49,8 @@ class FoilClassificationDataset(Dataset):
         self._max_seq_length = max_seq_length
         self._max_region_num = max_region_num
         self.num_labels = 2
+        self.dataroot = dataroot
+        self.split = split
         if "roberta" in bert_model:
             cache_path = os.path.join(
                 dataroot,
@@ -90,13 +72,41 @@ class FoilClassificationDataset(Dataset):
             )
 
         if not os.path.exists(cache_path):
-            self._entries = _load_annotations(annotations_jsonpath)
+            self._entries = self._load_annotations(annotations_jsonpath)
             self.tokenize()
             self.tensorize()
             cPickle.dump(self._entries, open(cache_path, "wb"))
         else:
             logger.info("Loading from %s" % cache_path)
             self._entries = cPickle.load(open(cache_path, "rb"))
+
+    def _load_annotations(self, annotations_jsonpath):
+        """Build an index out of FOIL annotations, mapping each image ID with its corresponding captions."""
+
+        annotations_json = json.load(open(annotations_jsonpath))
+
+        # Build an index which maps image id with a list of caption annotations.
+        entries = []
+        remove_ids = np.load(
+            os.path.join(self.dataroot, "cache", "coco_test_ids.npy")
+        )
+        
+        for annotation in annotations_json["annotations"]:
+            '''
+            if int(annotation["image_id"]) in remove_ids and self.split=='train':
+                continue
+            '''
+            entries.append(
+                {
+                    "caption": annotation["caption"].lower(),
+                    "foil": annotation["foil"],
+                    "image_id": int(annotation["image_id"]),
+                }
+            )
+
+        return entries
+
+
 
     def tokenize(self):
         """Tokenizes the captions.
@@ -160,7 +170,7 @@ class FoilClassificationDataset(Dataset):
         co_attention_mask = torch.zeros((self._max_region_num, self._max_seq_length))
 
         caption = entry["token"]
-        target = int(entry["foil"])
+        target = float(entry["foil"])
         input_mask = entry["input_mask"]
         segment_ids = entry["segment_ids"]
 

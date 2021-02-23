@@ -24,6 +24,7 @@ from .guesswhat_dataset import GuessWhatDataset
 from .visual7w_pointing_dataset import Visual7wPointingDataset
 from .guesswhat_pointing_dataset import GuessWhatPointingDataset
 from .flickr_grounding_dataset import FlickrGroundingDataset
+from .captionqe_dataset import CaptionQEDataset
 
 # from .flickr_retreival_dataset import FlickrRetreivalDatasetTrain, FlickrRetreivalDatasetVal
 __all__ = [
@@ -46,6 +47,7 @@ __all__ = [
     "Visual7wPointingDataset",
     "GuessWhatPointingDataset",
     "FlickrGroundingDataset",
+    "CaptionQEDataset",
     "",
 ]
 
@@ -68,6 +70,7 @@ DatasetMapTrain = {
     "Visual7w": Visual7wPointingDataset,
     "GuessWhatPointing": GuessWhatPointingDataset,
     "FlickrGrounding": FlickrGroundingDataset,
+    "CaptionQE" : CaptionQEDataset
 }
 
 
@@ -90,4 +93,5 @@ DatasetMapEval = {
     "Visual7w": Visual7wPointingDataset,
     "GuessWhatPointing": GuessWhatPointingDataset,
     "FlickrGrounding": FlickrGroundingDataset,
+    "CaptionQE" : CaptionQEDataset
 }
