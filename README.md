@@ -34,7 +34,7 @@ We used two pre-trained models(pretrained ViLBERT, fine-tuned on 12 tasks) in ou
 ## Feature Extraction
 
 ### Using Processed Dataset
-We provide the processed version for Flickr8k and Composite in [this link](https://drive.google.com/drive/folders/1swrUsLyEwTfnmoKLI8QAgAbHrEEApJp9?usp=sharing), including the pre-computed detection features. Download the files and extract to "data" dir.
+We provide the processed version for Flickr8k and Composite in [this link](http://milabfile.snu.ac.kr:15000/sharing/VEdaKoEwz), including the pre-computed detection features. Download the files and extract to "data" dir.
 
 ### Extracting Features for Other Dataset
 We extract the detection features following the guidelines in [this link](https://github.com/facebookresearch/vilbert-multi-task/tree/master/data).
