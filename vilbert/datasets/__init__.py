@@ -12,7 +12,6 @@ from .foil_dataset import FoilClassificationDataset
 from .vqa_dataset import VQAClassificationDataset
 from .vqa_mc_dataset import VQAMultipleChoiceDataset
 from .nlvr2_dataset import NLVR2Dataset
-from .refer_expression_dataset import ReferExpressionDataset
 from .retreival_dataset import RetreivalDataset, RetreivalDatasetVal
 from .vcr_dataset import VCRDataset
 from .visdial_dataset import VisDialDataset
@@ -59,9 +58,6 @@ DatasetMapTrain = {
     "VCR_QA-R": VCRDataset,
     "RetrievalCOCO": RetreivalDataset,
     "RetrievalFlickr30k": RetreivalDataset,
-    "refcoco": ReferExpressionDataset,
-    "refcoco+": ReferExpressionDataset,
-    "refcocog": ReferExpressionDataset,
     "NLVR2": NLVR2Dataset,
     "VisualEntailment": VisualEntailmentDataset,
     "GQA": GQAClassificationDataset,
@@ -82,9 +78,6 @@ DatasetMapEval = {
     "VCR_QA-R": VCRDataset,
     "RetrievalCOCO": RetreivalDatasetVal,
     "RetrievalFlickr30k": RetreivalDatasetVal,
-    "refcoco": ReferExpressionDataset,
-    "refcoco+": ReferExpressionDataset,
-    "refcocog": ReferExpressionDataset,
     "NLVR2": NLVR2Dataset,
     "VisualEntailment": VisualEntailmentDataset,
     "GQA": GQAClassificationDataset,

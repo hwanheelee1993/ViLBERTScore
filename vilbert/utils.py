@@ -20,7 +20,7 @@ import boto3
 import requests
 from botocore.exceptions import ClientError
 from tqdm import tqdm
-from tensorboardX import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 from time import gmtime, strftime
 from bisect import bisect
 from torch import nn

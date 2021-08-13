@@ -33,7 +33,6 @@ from torch.nn.functional import softmax
 from utils import *
 from dataset import CaptioningDataset
 from torch.utils.data import DataLoader
-from bert_score.utils import get_idf_dict
 
 
 tokenizer = BertTokenizer.from_pretrained(
